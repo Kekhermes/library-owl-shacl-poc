@@ -1,0 +1,111 @@
+@prefix ex:   <https://example.org/library#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# -----------------------------------------------------------------------------
+# 1. Thèmes documentaires (arborescence transitive)
+# -----------------------------------------------------------------------------
+ex:theme_sciences a ex:Theme ;
+    rdfs:label "Sciences & Techniques"@fr .
+
+ex:theme_informatique a ex:Theme ;
+    rdfs:label "Informatique"@fr ;
+    ex:themeParent ex:theme_sciences .
+
+ex:theme_ontologies a ex:Theme ;
+    rdfs:label "Web Sémantique & Ontologies"@fr ;
+    ex:themeParent ex:theme_informatique .
+
+# -----------------------------------------------------------------------------
+# 2. Auteurs (relations d'inversion et de symétrie)
+# -----------------------------------------------------------------------------
+ex:auteur_goscinny a ex:Auteur ;
+    ex:nom "René Goscinny" ;
+    ex:coAuteurAvec ex:auteur_uderzo .
+
+ex:auteur_uderzo a ex:Auteur ;
+    ex:nom "Albert Uderzo" ;
+    ex:coAuteurAvec ex:auteur_goscinny .
+
+ex:auteur_berners_lee a ex:Auteur ;
+    ex:nom "Tim Berners-Lee" .
+
+# -----------------------------------------------------------------------------
+# 3. Documents & Livres (œuvres cataloguées)
+# -----------------------------------------------------------------------------
+ex:livre_asterix a ex:BandeDessinee ;
+    ex:titre "Astérix le Gaulois" ;
+    ex:isbn "978-2-01-210133-3" ;
+    ex:aPourAuteur ex:auteur_goscinny, ex:auteur_uderzo ;
+    ex:traiteDe ex:theme_sciences .
+
+ex:livre_ontologies a ex:Livre ;
+    ex:titre "Le Web Sémantique et les Ontologies" ;
+    ex:isbn "978-2-10-049876-5" ;
+    ex:aPourAuteur ex:auteur_berners_lee ;
+    ex:traiteDe ex:theme_ontologies .
+
+# -----------------------------------------------------------------------------
+# 4. Exemplaires physiques (items matériels prêtables en rayon)
+# -----------------------------------------------------------------------------
+ex:exemplaire_ast_1 a ex:ExemplairePhysique ;
+    rdfs:label "Exemplaire Astérix #1"@fr ;
+    ex:exemplaireDe ex:livre_asterix ;
+    ex:codeBarres "BC-AST-001" .
+
+ex:exemplaire_ont_1 a ex:ExemplairePhysique ;
+    rdfs:label "Exemplaire Ontologies #1"@fr ;
+    ex:exemplaireDe ex:livre_ontologies ;
+    ex:codeBarres "BC-ONT-001" .
+
+ex:exemplaire_ont_2 a ex:ExemplairePhysique ;
+    rdfs:label "Exemplaire Ontologies #2"@fr ;
+    ex:exemplaireDe ex:livre_ontologies ;
+    ex:codeBarres "BC-ONT-002" .
+
+# -----------------------------------------------------------------------------
+# 5. Abonnés inscrits
+# -----------------------------------------------------------------------------
+ex:abonne_alice a ex:Abonne ;
+    rdfs:label "Alice Dupont"@fr ;
+    ex:nom "Alice Dupont" ;
+    ex:email "alice.dupont@example.org" .
+
+ex:abonne_bob a ex:Abonne ;
+    rdfs:label "Bob Martin"@fr ;
+    ex:nom "Bob Martin" ;
+    ex:email "bob.martin@example.org" .
+
+ex:abonne_claire a ex:Abonne ;
+    rdfs:label "Claire Bernard"@fr ;
+    ex:nom "Claire Bernard" ;
+    ex:email "claire.bernard@example.org" .
+
+# -----------------------------------------------------------------------------
+# 6. Emprunts (faits initiaux observés)
+# -----------------------------------------------------------------------------
+ex:emprunt_alice a ex:Emprunt ;
+    rdfs:label "Emprunt d'Alice (à l'heure)"@fr ;
+    ex:concerneExemplaire ex:exemplaire_ast_1 ;
+    ex:empruntePar ex:abonne_alice ;
+    ex:dateEmprunt "2026-10-01"^^xsd:date ;
+    ex:dateRetourPrevue "2026-10-21"^^xsd:date ;
+    ex:joursRetard 0 .
+
+ex:emprunt_bob a ex:Emprunt ;
+    rdfs:label "Emprunt de Bob (retard léger)"@fr ;
+    ex:concerneExemplaire ex:exemplaire_ont_1 ;
+    ex:empruntePar ex:abonne_bob ;
+    ex:dateEmprunt "2026-09-15"^^xsd:date ;
+    ex:dateRetourPrevue "2026-10-05"^^xsd:date ;
+    ex:joursRetard 3 .
+
+ex:emprunt_claire a ex:Emprunt ;
+    rdfs:label "Emprunt de Claire (retard critique)"@fr ;
+    ex:concerneExemplaire ex:exemplaire_ont_2 ;
+    ex:empruntePar ex:abonne_claire ;
+    ex:dateEmprunt "2026-09-01"^^xsd:date ;
+    ex:dateRetourPrevue "2026-09-22"^^xsd:date ;
+    ex:joursRetard 10 .

@@ -1,0 +1,193 @@
+@prefix ex:   <https://example.org/library#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# -----------------------------------------------------------------------------
+# Ontologie : Médiathèque et gestion des prêts
+# -----------------------------------------------------------------------------
+ex:LibraryOntology a owl:Ontology ;
+    rdfs:label "Ontologie de médiathèque et gestion des prêts"@fr ;
+    rdfs:comment "Modèle OWL 2 pédagogique pour l'apprentissage des axiomes sémantiques et de la validation SHACL."@fr .
+
+# -----------------------------------------------------------------------------
+# 1. Classes principales et hiérarchie (rdfs:subClassOf, owl:disjointWith)
+# -----------------------------------------------------------------------------
+
+ex:Document a owl:Class ;
+    rdfs:label "Document"@fr ;
+    rdfs:comment "Œuvre intellectuelle cataloguée dans la médiathèque."@fr .
+
+ex:Livre a owl:Class ;
+    rdfs:subClassOf ex:Document ;
+    rdfs:label "Livre"@fr ;
+    rdfs:comment "Document écrit publié sous forme de volume."@fr .
+
+ex:BandeDessinee a owl:Class ;
+    rdfs:subClassOf ex:Livre ;
+    rdfs:label "Bande dessinée"@fr ;
+    rdfs:comment "Livre illustré racontant une histoire en séquences graphiques."@fr .
+
+ex:ExemplairePhysique a owl:Class ;
+    rdfs:label "Exemplaire physique"@fr ;
+    rdfs:comment "Support matériel d'un document disponible au prêt en rayon."@fr ;
+    owl:hasKey ( ex:codeBarres ) .
+
+ex:LivreNumerique a owl:Class ;
+    rdfs:subClassOf ex:Document ;
+    owl:disjointWith ex:ExemplairePhysique ;
+    rdfs:label "Livre numérique"@fr ;
+    rdfs:comment "Fichier numérique consultable en ligne sans exemplaire matériel."@fr .
+
+ex:Personne a owl:Class ;
+    rdfs:label "Personne"@fr ;
+    rdfs:comment "Être humain identifié dans le système."@fr .
+
+ex:Auteur a owl:Class ;
+    rdfs:subClassOf ex:Personne ;
+    rdfs:label "Auteur"@fr ;
+    rdfs:comment "Personne physique créatrice d'une œuvre littéraire ou artistique."@fr .
+
+ex:Abonne a owl:Class ;
+    rdfs:subClassOf ex:Personne ;
+    owl:disjointWith ex:Auteur ;
+    rdfs:label "Abonné"@fr ;
+    rdfs:comment "Usager inscrit à la médiathèque habilité à emprunter des documents."@fr .
+
+ex:Theme a owl:Class ;
+    rdfs:label "Thème / Sujet"@fr ;
+    rdfs:comment "Sujet ou discipline documentaire dans le plan de classement."@fr .
+
+ex:Emprunt a owl:Class ;
+    rdfs:label "Emprunt"@fr ;
+    rdfs:comment "Transaction de prêt associant un abonné, un exemplaire et une durée."@fr .
+
+ex:EmpruntEnRetard a owl:Class ;
+    rdfs:subClassOf ex:Emprunt ;
+    rdfs:label "Emprunt en retard"@fr ;
+    rdfs:comment "Sous-classe représentant un emprunt ayant dépassé la date limite de retour."@fr .
+
+# -----------------------------------------------------------------------------
+# 2. Propriétés d'objets (Object Properties)
+# -----------------------------------------------------------------------------
+
+ex:aPourAuteur a owl:ObjectProperty ;
+    rdfs:label "a pour auteur"@fr ;
+    rdfs:comment "Relie un document à son ou ses créateurs."@fr ;
+    rdfs:domain ex:Document ;
+    rdfs:range ex:Auteur ;
+    owl:inverseOf ex:aEcrit .
+
+ex:aEcrit a owl:ObjectProperty ;
+    rdfs:label "a écrit"@fr ;
+    rdfs:comment "Relie un auteur aux documents qu'il a rédigés."@fr ;
+    rdfs:domain ex:Auteur ;
+    rdfs:range ex:Document ;
+    owl:inverseOf ex:aPourAuteur .
+
+ex:coAuteurAvec a owl:ObjectProperty, owl:SymmetricProperty ;
+    rdfs:label "co-auteur avec"@fr ;
+    rdfs:comment "Relation symétrique : si A est co-auteur avec B, alors B est co-auteur avec A."@fr ;
+    rdfs:domain ex:Auteur ;
+    rdfs:range ex:Auteur .
+
+ex:exemplaireDe a owl:ObjectProperty ;
+    rdfs:label "exemplaire de"@fr ;
+    rdfs:comment "Relie un exemplaire physique à l'œuvre intellectuelle correspondante."@fr ;
+    rdfs:domain ex:ExemplairePhysique ;
+    rdfs:range ex:Document .
+
+ex:concerneExemplaire a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:label "concerne exemplaire"@fr ;
+    rdfs:comment "Relie un emprunt à l'unique exemplaire physique prêté."@fr ;
+    rdfs:domain ex:Emprunt ;
+    rdfs:range ex:ExemplairePhysique .
+
+ex:empruntePar a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:label "emprunté par"@fr ;
+    rdfs:comment "Relie un emprunt à l'unique abonné emprunteur."@fr ;
+    rdfs:domain ex:Emprunt ;
+    rdfs:range ex:Abonne .
+
+ex:traiteDe a owl:ObjectProperty ;
+    rdfs:label "traite du thème"@fr ;
+    rdfs:comment "Associe un document à une thématique documentaire."@fr ;
+    rdfs:domain ex:Document ;
+    rdfs:range ex:Theme .
+
+ex:themeParent a owl:ObjectProperty, owl:TransitiveProperty ;
+    rdfs:label "thème parent"@fr ;
+    rdfs:comment "Relation hiérarchique transitive entre thèmes."@fr ;
+    rdfs:domain ex:Theme ;
+    rdfs:range ex:Theme .
+
+ex:aInteretPour a owl:ObjectProperty ;
+    rdfs:label "a de l'intérêt pour"@fr ;
+    rdfs:comment "Centre d'intérêt documentaire d'un abonné."@fr ;
+    rdfs:domain ex:Abonne ;
+    rdfs:range ex:Theme .
+
+# -----------------------------------------------------------------------------
+# 3. Propriétés de données (Datatype Properties)
+# -----------------------------------------------------------------------------
+
+ex:titre a owl:DatatypeProperty ;
+    rdfs:label "titre"@fr ;
+    rdfs:comment "Titre d'un document."@fr ;
+    rdfs:domain ex:Document ;
+    rdfs:range xsd:string .
+
+ex:isbn a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "code ISBN"@fr ;
+    rdfs:comment "Numéro international normalisé du livre (13 caractères)."@fr ;
+    rdfs:domain ex:Livre ;
+    rdfs:range xsd:string .
+
+ex:codeBarres a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "code-barres"@fr ;
+    rdfs:comment "Identifiant code-barres unique apposé sur l'exemplaire physique."@fr ;
+    rdfs:domain ex:ExemplairePhysique ;
+    rdfs:range xsd:string .
+
+ex:nom a owl:DatatypeProperty ;
+    rdfs:label "nom complet"@fr ;
+    rdfs:comment "Nom d'une personne."@fr ;
+    rdfs:domain ex:Personne ;
+    rdfs:range xsd:string .
+
+ex:email a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "adresse email"@fr ;
+    rdfs:comment "Adresse électronique d'un abonné."@fr ;
+    rdfs:domain ex:Abonne ;
+    rdfs:range xsd:string .
+
+ex:dateEmprunt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "date d'emprunt"@fr ;
+    rdfs:comment "Date à laquelle le document a été emprunté."@fr ;
+    rdfs:domain ex:Emprunt ;
+    rdfs:range xsd:date .
+
+ex:dateRetourPrevue a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "date de retour prévue"@fr ;
+    rdfs:comment "Date limite contractuelle de restitution de l'exemplaire."@fr ;
+    rdfs:domain ex:Emprunt ;
+    rdfs:range xsd:date .
+
+ex:joursRetard a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "jours de retard"@fr ;
+    rdfs:comment "Nombre de jours de retard constatés au moment du contrôle."@fr ;
+    rdfs:domain ex:Emprunt ;
+    rdfs:range xsd:integer .
+
+ex:statutEmprunt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "statut de l'emprunt"@fr ;
+    rdfs:comment "Statut calculé par les règles SHACL (en règle, à relancer, critique)."@fr ;
+    rdfs:domain ex:Emprunt ;
+    rdfs:range rdf:langString .
+
+ex:penaliteEuros a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:label "pénalité de retard (€)"@fr ;
+    rdfs:comment "Montant de la pénalité de retard calculée en euros."@fr ;
+    rdfs:domain ex:Emprunt ;
+    rdfs:range xsd:decimal .

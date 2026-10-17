@@ -1,0 +1,162 @@
+@prefix ex:   <https://example.org/library#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+# =============================================================================
+# 1. SHACL CORE : Formes de validation des données (Data Contract)
+# =============================================================================
+
+# Validation de l'œuvre / Livre
+ex:LivreValidationShape a sh:NodeShape ;
+    sh:targetClass ex:Livre ;
+    rdfs:label "Contrat de validation d'un livre"@fr ;
+    sh:property [
+        sh:path ex:titre ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Un livre doit comporter au moins un titre (xsd:string)."@fr ;
+    ] ;
+    sh:property [
+        sh:path ex:isbn ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^97[89]-\\d{1,5}-\\d+-\\d+-[0-9X]$" ;
+        sh:message "L'ISBN doit être unique et respecter la syntaxe internationale ISBN-13 (ex. 978-2-01-210133-3)."@fr ;
+    ] .
+
+# Validation de l'adhérent (Monde fermé : rejette les propriétés inconnues)
+ex:AbonneValidationShape a sh:NodeShape ;
+    sh:targetClass ex:Abonne ;
+    rdfs:label "Contrat de validation d'un abonné"@fr ;
+    sh:closed true ;
+    sh:ignoredProperties ( rdf:type rdfs:label ) ;
+    sh:property [
+        sh:path ex:nom ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "L'abonné doit avoir un nom unique (xsd:string)."@fr ;
+    ] ;
+    sh:property [
+        sh:path ex:email ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:pattern "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$" ;
+        sh:message "L'email doit respecter un format de courriel valide."@fr ;
+    ] .
+
+# Validation de l'exemplaire physique
+ex:ExemplaireValidationShape a sh:NodeShape ;
+    sh:targetClass ex:ExemplairePhysique ;
+    rdfs:label "Contrat de validation d'un exemplaire physique"@fr ;
+    sh:property [
+        sh:path ex:codeBarres ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "Un exemplaire physique doit avoir un code-barres unique."@fr ;
+    ] ;
+    sh:property [
+        sh:path ex:exemplaireDe ;
+        sh:minCount 1 ;
+        sh:class ex:Document ;
+        sh:message "Un exemplaire physique doit être rattaché à au moins un Document."@fr ;
+    ] .
+
+# Validation de l'emprunt (intégrité temporelle et cardinalités)
+ex:EmpruntValidationShape a sh:NodeShape ;
+    sh:targetClass ex:Emprunt ;
+    rdfs:label "Contrat de validation d'un emprunt"@fr ;
+    sh:property [
+        sh:path ex:concerneExemplaire ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class ex:ExemplairePhysique ;
+        sh:message "L'emprunt doit désigner exactement un exemplaire physique."@fr ;
+    ] ;
+    sh:property [
+        sh:path ex:empruntePar ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class ex:Abonne ;
+        sh:message "L'emprunt doit être contracté par exactement un abonné."@fr ;
+    ] ;
+    sh:property [
+        sh:path ex:dateEmprunt ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:lessThan ex:dateRetourPrevue ;
+        sh:message "La date d'emprunt doit être strictement antérieure à la date de retour prévue."@fr ;
+    ] ;
+    sh:property [
+        sh:path ex:dateRetourPrevue ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:date ;
+        sh:message "La date de retour prévue doit être renseignée (xsd:date)."@fr ;
+    ] ;
+    sh:property [
+        sh:path ex:joursRetard ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "Le nombre de jours de retard doit être un entier positif ou nul."@fr ;
+    ] .
+
+# =============================================================================
+# 2. SHACL-AF : Règles d'inférence (Inference Rules)
+# =============================================================================
+
+ex:EmpruntRulesShape a sh:NodeShape ;
+    sh:targetClass ex:Emprunt ;
+    rdfs:label "Règles SHACL-AF pour le calcul de statut et pénalités"@fr ;
+    # Règle 1 : Emprunt en règle (retard = 0)
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this <https://example.org/library#statutEmprunt> "en règle"@fr .
+                $this <https://example.org/library#penaliteEuros> 0.0 .
+            }
+            WHERE {
+                $this <https://example.org/library#joursRetard> ?days .
+                FILTER (?days = 0)
+            }
+        """ ;
+    ] ;
+    # Règle 2 : Emprunt à relancer (1 <= retard < 7)
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this <https://example.org/library#statutEmprunt> "à relancer"@fr .
+                $this <https://example.org/library#penaliteEuros> ?penalite .
+            }
+            WHERE {
+                $this <https://example.org/library#joursRetard> ?days .
+                FILTER (?days > 0 && ?days < 7)
+                BIND (xsd:decimal(?days) * 0.50 AS ?penalite)
+            }
+        """ ;
+    ] ;
+    # Règle 3 : Emprunt critique (retard >= 7)
+    sh:rule [
+        a sh:SPARQLRule ;
+        sh:construct """
+            CONSTRUCT {
+                $this <https://example.org/library#statutEmprunt> "critique"@fr .
+                $this <https://example.org/library#penaliteEuros> ?penalite .
+            }
+            WHERE {
+                $this <https://example.org/library#joursRetard> ?days .
+                FILTER (?days >= 7)
+                BIND (xsd:decimal(?days) * 0.50 AS ?penalite)
+            }
+        """ ;
+    ] .

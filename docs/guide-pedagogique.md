@@ -15,7 +15,7 @@ Dans notre médiathèque, trois abonnés ont chacun emprunté un document :
 | `emprunt_claire` | Claire Bernard | *Le Web Sémantique et les Ontologies* | 10 jours | « critique » | 5.00 € |
 
 Notre objectif est double :
-1. **Valider contractuellement les données** : s'assurer qu'aucun document n'a un ISBN mal formé, qu'un emprunt ne commence pas après sa date de fin, et qu'un abonné n'a pas de données corrompues.
+1. **Valider le modèle conceptuel (T-Box)** et **valider contractuellement les données réelles (A-Box)**.
 2. **Inférer automatiquement les statuts et pénalités** : enrichir le graphe avec de nouveaux faits sans modifier le code applicatif, uniquement grâce aux règles sémantiques.
 
 ---
@@ -24,14 +24,17 @@ Notre objectif est double :
 
 ```mermaid
 flowchart TD
-    O["rdf/ontology.ttl<br>(Vocabulaire T-Box & Axiomes OWL 2)"] --> G["Graphe RDF initial<br>(Vocabulaire + Faits)"]
+    O["rdf/ontology.ttl<br>(Vocabulaire T-Box & Axiomes OWL 2)"] --> V1{"Étape 1 :<br>Validation T-Box<br>(Cohérence Logique)"}
+    V1 -->|Conflit / Cycle| E1["Erreur T-Box :<br>Classe insatisfiable ou cycle"]
+    V1 -->|Modèle sain| G["Graphe RDF initial<br>(Modèle T-Box + Faits A-Box)"]
+
     D["rdf/data.ttl<br>(Faits réels A-Box : Abonnés, Livres, Prêts)"] --> G
     
-    S["rdf/shapes.ttl<br>(Contrats SHACL Core)"] --> V{"Étape 1 :<br>Validation SHACL"}
-    G --> V
+    S["rdf/shapes.ttl<br>(Contrats SHACL Core)"] --> V2{"Étape 2 :<br>Validation A-Box<br>(Contrats SHACL)"}
+    G --> V2
     
-    V -->|Erreurs détectées| E["Rapport de violation<br>(ex: ISBN faux, dates inversées)"]
-    V -->|Conforme| R{"Étape 2 :<br>Moteur de Règles SHACL-AF"}
+    V2 -->|Violation contrat| E2["Rapport de violation A-Box<br>(ISBN faux, dates inversées, etc.)"]
+    V2 -->|Conforme| R{"Étape 3 :<br>Moteur de Règles SHACL-AF"}
     
     SR["rdf/shapes.ttl<br>(Règles sh:SPARQLRule)"] --> R
     R --> F["Graphe enrichi final<br>(Triplets statutEmprunt & penaliteEuros)"]
@@ -83,67 +86,128 @@ classDiagram
 
 ---
 
-## 4. Les axiomes OWL 2 décryptés
+## 4. T-Box vs A-Box : Comprendre la frontière et les mécanismes de validation
 
-Dans `rdf/ontology.ttl`, plusieurs axiomes logiques fondamentaux sont déclarés :
+Une des difficultés majeures dans l'apprentissage de l'ontologie est de comprendre **ce qui relève du modèle (T-Box)** et **ce qui relève des données (A-Box)**, ainsi que **la manière dont on valide chacun des deux niveaux**.
 
-### A. La symétrie (`owl:SymmetricProperty`)
-Si René Goscinny est co-auteur avec Albert Uderzo, un raisonneur OWL en déduit immédiatement la réciproque sans qu'il soit nécessaire d'écrire le triplet dans les deux sens :
-```turtle
-ex:coAuteurAvec a owl:SymmetricProperty .
-```
+### Tableau comparatif fondamental
 
-### B. L'inversion (`owl:inverseOf`)
-La relation entre une œuvre et son créateur fonctionne dans les deux sens :
-```turtle
-ex:aPourAuteur owl:inverseOf ex:aEcrit .
-```
-Dès lors que le graphe contient `livre_asterix aPourAuteur auteur_goscinny`, le raisonneur sait que `auteur_goscinny aEcrit livre_asterix`.
-
-### C. La transitivité (`owl:TransitiveProperty`)
-Le plan de classement documentaire classe les thèmes en cascade :
-- *Web Sémantique & Ontologies* $\rightarrow$ thème parent : *Informatique*.
-- *Informatique* $\rightarrow$ thème parent : *Sciences & Techniques*.
-
-Grâce à `owl:TransitiveProperty` sur `ex:themeParent`, le système infère automatiquement que le livre d'ontologies relève également du domaine des *Sciences & Techniques*.
+| Dimension | T-Box (Terminological Box) | A-Box (Assertional Box) |
+|---|---|---|
+| **Définition** | Le schéma conceptuel, le vocabulaire et les règles logiques du domaine. | Les données réelles, les faits observés, les individus et les transactions. |
+| **Fichiers dans le projet** | `rdf/ontology.ttl` | `rdf/data.ttl` |
+| **Éléments contenus** | `owl:Class`, `subClassOf`, `disjointWith`, `ObjectProperty`, `DatatypeProperty`, `TransitiveProperty`, `inverseOf`. | `ex:livre_asterix`, `ex:abonne_alice`, `ex:emprunt_bob`, leurs relations et dates. |
+| **Qu'est-ce qui « casse » ce niveau ?** | Une contradiction logique interne, une classe impossible à instancier, un cycle d'héritage, un schéma non documenté. | Une donnée mal formée, un champ obligatoire manquant, une date incohérente, un rôle incompatible. |
+| **Outil de validation** | **Raisonnement OWL / Vérificateur de cohérence sémantique** + Shapes de gouvernance métamodèle. | **SHACL Core** (contrats de données, formes fermées, contraintes relationnelles). |
 
 ---
 
-## 5. La validation SHACL Core pas à pas
+### A. Comment vérifier que je ne casse rien lorsque j'ajoute des éléments à ma T-Box ?
 
-Avant d'appliquer des règles de calcul, SHACL s'assure que les données sont fiables.
+Quand vous modifiez ou étendez le modèle conceptuel (par exemple, ajouter une nouvelle catégorie de document ou une nouvelle relation), vous devez vérifier **qu'aucune incohérence logique n'a été introduite**.
 
-### Exemple 1 : Validation de l'ISBN (Expression régulière)
-Le contrat SHACL `ex:LivreValidationShape` impose :
+#### Exemple 1 : Une extension T-Box valide (sans casse)
+Vous souhaitez ajouter les livres audio dans la médiathèque :
 ```turtle
-sh:path ex:isbn ;
-sh:pattern "^97[89]-\\d{1,5}-\\d+-\\d+-[0-9X]$" ;
+ex:LivreAudio a owl:Class ;
+    rdfs:subClassOf ex:Document ;
+    rdfs:label "Livre audio"@fr ;
+    rdfs:comment "Enregistrement sonore de la lecture d'un texte."@fr .
 ```
-Si un livre est saisi avec l'ISBN `"123-FAUX"`, le moteur pySHACL génère immédiatement un rapport de non-conformité et bloque la validation.
+- Le raisonneur vérifie : `Document` n'est pas disjoint avec une autre classe parente.
+- Aucun cycle n'est créé.
+- Le validateur T-Box confirme : `MODÈLE COHÉRENT ET VALIDE`.
 
-### Exemple 2 : Cohérence temporelle (`sh:lessThan`)
-Un emprunt ne peut pas avoir une date de début postérieure à sa date de retour :
+#### Exemple 2 : Une régression T-Box (casse logique / classe insatisfiable)
+Supposons qu'un modélisateur crée par erreur une classe `LivreHybride` qui hérite à la fois de `LivreNumerique` et de `ExemplairePhysique` :
 ```turtle
-sh:path ex:dateEmprunt ;
-sh:lessThan ex:dateRetourPrevue ;
+ex:LivreHybride a owl:Class ;
+    rdfs:subClassOf ex:LivreNumerique, ex:ExemplairePhysique .
 ```
-Si un opérateur saisit une date d'emprunt au 25 octobre et un retour prévu au 10 octobre, SHACL signale l'anomalie.
+Or, l'ontologie stipule explicitement :
+```turtle
+ex:LivreNumerique owl:disjointWith ex:ExemplairePhysique .
+```
+- **Conséquence logique :** Un individu ne peut pas appartenir à la fois à deux classes disjointes. La classe `LivreHybride` devient donc **logiquement impossible** (insatisfiable). En logique de description, elle équivaut à `owl:Nothing` (l'ensemble vide).
+- **Comment le vérifier automatiquement ?**
+  Le moteur exécute `validate_tbox_consistency()` (testé dans `tests/test_tbox_validation.py`) :
+  ```text
+  [ERREUR T-BOX] Classe insatisfiable: LivreHybride hérite de deux classes mutuellement disjointes (LivreNumerique et ExemplairePhysique).
+  ```
 
-### Exemple 3 : Monde fermé sur les abonnés (`sh:closed true`)
-Pour protéger le registre des usagers, aucun champ imprévu ne doit polluer les fiches :
+#### Exemple 3 : Une régression T-Box par cycle d'héritage
+Si quelqu'un écrit :
 ```turtle
-ex:AbonneValidationShape a sh:NodeShape ;
-    sh:targetClass ex:Abonne ;
-    sh:closed true ;
-    sh:ignoredProperties ( rdf:type rdfs:label ) ;
+ex:Document rdfs:subClassOf ex:BandeDessinee .
 ```
-L'ajout d'une propriété inconnue (comme `ex:proprieteInconnue`) est automatiquement rejeté.
+Comme `BandeDessinee` est déjà sous-classe de `Livre`, qui est sous-classe de `Document`, cela crée une boucle circulaire : `Document <|-- Livre <|-- BandeDessinee <|-- Document`.
+- En logique OWL, les trois classes deviennent mathématiquement équivalentes, détruisant la hiérarchie.
+- Le validateur T-Box intercepte immédiatement l'erreur :
+  ```text
+  [ERREUR T-BOX] Cycle d'héritage illégal détecté entre Document et BandeDessinee.
+  ```
 
 ---
 
-## 6. Les règles d'inférence SHACL-AF décortiquées
+### B. Comment vérifier que je ne casse rien lorsque j'ajoute des données (A-Box) ?
 
-Les règles du fichier `rdf/shapes.ttl` exploitent la syntaxe SPARQL `CONSTRUCT` pour générer de nouveaux triplets. 
+Quand vous insérez de nouvelles données (un nouvel usager, un nouveau livre, un nouvel emprunt), la T-Box ne suffit pas à garantir leur intégrité, car OWL opère en **Monde Ouvert** (l'absence d'un champ n'est pas une erreur pour OWL). C'est le rôle de **SHACL Core**.
+
+#### Exemple 1 : Un ajout A-Box valide (sans casse)
+Vous ajoutez un abonné conforme :
+```turtle
+ex:abonne_nouveau a ex:Abonne ;
+    ex:nom "David Martin" ;
+    ex:email "david.martin@example.org" .
+```
+- Tous les champs obligatoires sont présents (`sh:minCount 1`).
+- Le format d'email correspond au motif Regex.
+- Aucune propriété parasite n'est présente (`sh:closed true`).
+- Résultat : **CONFORME**.
+
+#### Exemple 2 : Une casse A-Box sur format de données (ISBN)
+Un agent saisit un livre avec un identifiant corrompu :
+```turtle
+ex:livre_errone a ex:Livre ;
+    ex:titre "Titre test" ;
+    ex:isbn "ABC-12345" .
+```
+- SHACL Core applique la forme `ex:LivreValidationShape` avec sa contrainte `sh:pattern "^97[89]-\\d{1,5}-\\d+-\\d+-[0-9X]$"`.
+- pySHACL rejette l'insertion avec le message explicite :
+  ```text
+  [VIOLATION A-BOX] L'ISBN doit être unique et respecter la syntaxe internationale ISBN-13.
+  ```
+
+#### Exemple 3 : Une casse A-Box sur cohérence temporelle
+Un emprunt est enregistré avec une date d'emprunt au 25 octobre et une date de retour prévue au 10 octobre :
+```turtle
+ex:emprunt_fou a ex:Emprunt ;
+    ex:dateEmprunt "2026-10-25"^^xsd:date ;
+    ex:dateRetourPrevue "2026-10-10"^^xsd:date .
+```
+- SHACL applique la contrainte relationnelle `sh:lessThan ex:dateRetourPrevue`.
+- pySHACL signale immédiatement l'anomalie :
+  ```text
+  [VIOLATION A-BOX] La date d'emprunt doit être strictement antérieure à la date de retour prévue.
+  ```
+
+#### Exemple 4 : Une casse A-Box par violation de disjonction
+Si un individu est déclaré à la fois usager abonné et auteur du catalogue :
+```turtle
+ex:usager_auteur a ex:Abonne, ex:Auteur ;
+    ex:nom "Docteur Jekyll" .
+```
+- SHACL applique la forme `ex:AbonneDisjointWithAuteurShape` avec sa contrainte `sh:not [ sh:class ex:Auteur ]`.
+- pySHACL bloque la saisie :
+  ```text
+  [VIOLATION A-BOX] Un abonné ne peut pas être simultanément déclaré comme auteur (classes disjointes).
+  ```
+
+---
+
+## 5. Les règles d'inférence SHACL-AF décortiquées
+
+Les règles du fichier `rdf/shapes.ttl` exploitent la syntaxe SPARQL `CONSTRUCT` pour générer de nouveaux triplets sur les données valides.
 
 Analysons la règle pour les retards modérés (1 à 6 jours) :
 
@@ -169,19 +233,20 @@ WHERE {
 
 ---
 
-## 7. Calcul manuel pour chaque cas du POC
+## 6. Synthèse des commandes de vérification
 
-1. **Cas d'Alice (`emprunt_alice`) :**
-   - Retard constaté : `0 jour`.
-   - Règle 1 s'active (`?days = 0`).
-   - Nouveaux triplets : `statutEmprunt "en règle"@fr` et `penaliteEuros 0.0`.
-2. **Cas de Bob (`emprunt_bob`) :**
-   - Retard constaté : `3 jours`.
-   - Règle 2 s'active (`0 < 3 < 7`).
-   - Pénalité : $3 \times 0.50 = 1.50$ €.
-   - Nouveaux triplets : `statutEmprunt "à relancer"@fr` et `penaliteEuros 1.50`.
-3. **Cas de Claire (`emprunt_claire`) :**
-   - Retard constaté : `10 jours`.
-   - Règle 3 s'active (`10 >= 7`).
-   - Pénalité : $10 \times 0.50 = 5.00$ €.
-   - Nouveaux triplets : `statutEmprunt "critique"@fr` et `penaliteEuros 5.00`.
+Pour vérifier votre projet au quotidien :
+
+```bash
+# Lancer l'intégralité des vérifications automatisées (T-Box + A-Box + Inférences)
+pytest -v
+
+# Vérifier uniquement que le modèle conceptuel (T-Box) n'est pas cassé
+pytest tests/test_tbox_validation.py -v
+
+# Vérifier uniquement que les données et contrats (A-Box) sont respectés
+pytest tests/test_validation.py -v
+
+# Exécuter le démonstrateur pédagogique complet
+python -m library_owl_shacl_poc
+```

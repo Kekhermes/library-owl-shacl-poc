@@ -11,8 +11,11 @@ def test_cli_execution(tmp_path: Path, capsys):
     main(output_path=out_file)
 
     captured = capsys.readouterr()
-    assert "Démonstration : Ontologie OWL 2 et Règles SHACL en Médiathèque" in captured.out
-    assert "Validation SHACL : CONFORME" in captured.out
+    assert "Démonstration Pédagogique : Ontologie OWL 2 et Règles SHACL en Médiathèque" in captured.out
+    assert "VALIDATION DE LA T-BOX" in captured.out
+    assert "VALIDATION DE LA A-BOX" in captured.out
+    assert "MODÈLE COHÉRENT ET VALIDE" in captured.out
+    assert "DONNÉES 100% CONFORMES" in captured.out
     assert "emprunt_alice" in captured.out
     assert "en règle" in captured.out
     assert "emprunt_bob" in captured.out

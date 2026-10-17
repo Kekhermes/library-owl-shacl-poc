@@ -7,7 +7,7 @@ Ce glossaire accompagne le projet d'apprentissage **Médiathèque OWL 2 & SHACL*
 ## 1. Fondations RDF et syntaxe Turtle
 
 ### RDF (Resource Description Framework)
-**RDF** est le standard du W3C pour représenter des informations et des connaissances sur le Web. Au lieu de ranger les données dans des tables rigides (comme en SQL), RDF les représente sous la forme d'un **graphe de relations**.
+**RDF** est le standard du W3C pour représenter des informations et des connaissances sur le Web. Au lieu de ranger les données dans des tables relationnelles rigides, RDF les représente sous la forme d'un **graphe de relations**.
 
 ### Triplet RDF
 L'atome de base de RDF est le **triplet**, qui se compose toujours de trois éléments : **Sujet — Prédicat — Objet**.
@@ -15,7 +15,7 @@ L'atome de base de RDF est le **triplet**, qui se compose toujours de trois él�
 - **Prédicat** : la relation, la propriété ou le lien (ex. : `ex:titre`).
 - **Objet** : la valeur ou la ressource reliée (ex. : `"Astérix le Gaulois"`).
 
-> ⚠️ **Attention au mot « Objet »** : En français courant ou en programmation, « objet » désigne souvent une entité complète (comme une instance de classe). En RDF, l'« objet » désigne uniquement la **troisième position** du triplet (la cible du lien).
+> ⚠️ **Attention au mot « Objet »** : En programmation orientée objet, « objet » désigne une entité logicielle. En RDF, l'« objet » désigne uniquement la **troisième position** du triplet (la cible du lien).
 
 ### Graphe RDF
 Un ensemble de triplets forme un **graphe RDF**. Dans ce graphe, les nœuds sont les sujets et les objets, et les arêtes orientées sont les prédicats.
@@ -24,7 +24,7 @@ Un ensemble de triplets forme un **graphe RDF**. Dans ce graphe, les nœuds sont
 Chaque concept ou ressource dans un graphe possède un identifiant unique universel sous forme d'URI (ex. : `https://example.org/library#Livre`).
 
 ### Turtle (.ttl)
-**Turtle** (Terse RDF Triple Language) est une syntaxe textuelle très lisible pour écrire des graphes RDF.
+**Turtle** (Terse RDF Triple Language) est une syntaxe textuelle compacte et lisible pour écrire des graphes RDF.
 - Le préfixe (ex. : `@prefix ex: <https://example.org/library#> .`) permet d'écrire `ex:Livre` au lieu de répéter l'adresse complète.
 - Le point `.` termine une affirmation (un fait).
 - Le point-virgule `;` permet d'énoncer plusieurs propriétés sur le même sujet sans répéter son nom.
@@ -36,9 +36,31 @@ Chaque concept ou ressource dans un graphe possède un identifiant unique univer
 ### Ontologie
 Une **ontologie** est une spécification formelle et explicite d'une conceptualisation partagée. Elle définit le « dictionnaire » et la « grammaire » logique d'un domaine : quelles catégories d'objets existent et comment elles sont reliées.
 
-### T-Box vs A-Box
-- **T-Box (Terminological Box)** : c'est le vocabulaire et les règles conceptuelles (les classes, les propriétés, les hiérarchies, les axiomes). Fichier : `rdf/ontology.ttl`.
-- **A-Box (Assertional Box)** : ce sont les faits concrets, les individus et les données du monde réel. Fichier : `rdf/data.ttl`.
+### T-Box (Terminological Box)
+La **T-Box** rassemble les définitions conceptuelles, le vocabulaire et les axiomes généraux du domaine, indépendamment de toute donnée concrète :
+- Les classes (`owl:Class`) et leur hiérarchie (`subClassOf`) ;
+- Les relations autorisées et leurs caractéristiques (`inverseOf`, `SymmetricProperty`, `TransitiveProperty`) ;
+- Les disjonctions conceptuelles (`owl:disjointWith`).
+- *Fichier associé :* `rdf/ontology.ttl`.
+
+### A-Box (Assertional Box)
+La **A-Box** rassemble les faits concrets, les individus observés et les transactions du monde réel :
+- Les personnes (`ex:abonne_alice`, `ex:auteur_goscinny`) ;
+- Les exemplaires physiques et leurs codes-barres (`ex:exemplaire_ast_1`) ;
+- Les emprunts réels datés et leurs retards (`ex:emprunt_bob`).
+- *Fichier associé :* `rdf/data.ttl`.
+
+### Cohérence sémantique (Consistency)
+Une ontologie (T-Box) est dite **cohérente** s'il existe au moins un modèle mathématique possible dans lequel tous ses axiomes sont simultanément vrais, sans contradiction interne.
+
+### Satisfiabilité d'une classe (Satisfiability)
+Une classe est **satisfiable** s'il est logiquement possible pour un individu d'en faire partie. Si une classe hérite de deux classes mutuellement disjointes (ex. `LivreNumerique` et `ExemplairePhysique`), elle devient **insatisfiable** : aucun individu ne peut légalement exister dans cette catégorie sans provoquer une contradiction logique.
+
+### Classe insatisfiable (`owl:Nothing`)
+En logique OWL 2, toute classe insatisfiable est logiquement subsumée par `owl:Nothing` (l'ensemble vide). C'est le signal d'alarme absolu d'une erreur de modélisation dans la T-Box.
+
+### Cycle d'héritage illégal
+Une boucle dans les relations de sous-classes (ex. $A \sqsubseteq B \sqsubseteq C \sqsubseteq A$). En logique OWL, un tel cycle force $A$, $B$ et $C$ à être rigoureusement équivalentes, ce qui détruit la hiérarchie souhaitée et signale une erreur de conception dans la T-Box.
 
 ### Classe (`owl:Class`)
 Une **classe** représente une catégorie d'entités qui partagent des caractéristiques communes. 
@@ -106,6 +128,10 @@ Contrainte vérifiant qu'une chaîne de caractères respecte un masque syntaxiqu
 ### Comparaison Relationnelle (`sh:lessThan`)
 Contrainte vérifiant une inégalité stricte entre les valeurs de deux propriétés différentes du même nœud.
 - *Exemple :* `ex:dateEmprunt sh:lessThan ex:dateRetourPrevue .`
+
+### Forme Négative (`sh:not`)
+Contrainte imposant qu'un nœud ne satisfasse PAS une forme cible.
+- *Exemple :* `sh:not [ sh:class ex:Auteur ]` appliqué aux abonnés garantit qu'aucun individu ne peut cumuler les deux rôles disjoints.
 
 ### Monde Fermé en SHACL (`sh:closed true`)
 Option interdisant qu'un individu possède des propriétés qui ne sont pas explicitement déclarées dans sa forme SHACL (à l'exception de celles listées dans `sh:ignoredProperties`). Idéal pour garantir l'intégrité de formulaires ou de profils adhérents.

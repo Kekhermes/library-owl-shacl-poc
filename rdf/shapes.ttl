@@ -1,17 +1,18 @@
 @prefix ex:   <https://example.org/library#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
 @prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix sh:   <http://www.w3.org/ns/shacl#> .
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 
 # =============================================================================
-# 1. SHACL CORE : Formes de validation des données (Data Contract)
+# 1. SHACL CORE : Formes de validation des données et individus (A-Box)
 # =============================================================================
 
 # Validation de l'œuvre / Livre
 ex:LivreValidationShape a sh:NodeShape ;
     sh:targetClass ex:Livre ;
-    rdfs:label "Contrat de validation d'un livre"@fr ;
+    rdfs:label "Contrat de validation d'un livre (A-Box)"@fr ;
     sh:property [
         sh:path ex:titre ;
         sh:minCount 1 ;
@@ -30,7 +31,7 @@ ex:LivreValidationShape a sh:NodeShape ;
 # Validation de l'adhérent (Monde fermé : rejette les propriétés inconnues)
 ex:AbonneValidationShape a sh:NodeShape ;
     sh:targetClass ex:Abonne ;
-    rdfs:label "Contrat de validation d'un abonné"@fr ;
+    rdfs:label "Contrat de validation d'un abonné (A-Box)"@fr ;
     sh:closed true ;
     sh:ignoredProperties ( rdf:type rdfs:label ) ;
     sh:property [
@@ -49,10 +50,19 @@ ex:AbonneValidationShape a sh:NodeShape ;
         sh:message "L'email doit respecter un format de courriel valide."@fr ;
     ] .
 
+# Validation de la disjonction des rôles (Abonné ne peut pas être Auteur)
+ex:AbonneDisjointWithAuteurShape a sh:NodeShape ;
+    sh:targetClass ex:Abonne ;
+    rdfs:label "Validation A-Box de la disjonction Abonné / Auteur"@fr ;
+    sh:not [
+        sh:class ex:Auteur ;
+    ] ;
+    sh:message "Un abonné ne peut pas être simultanément déclaré comme auteur (classes disjointes)."@fr .
+
 # Validation de l'exemplaire physique
 ex:ExemplaireValidationShape a sh:NodeShape ;
     sh:targetClass ex:ExemplairePhysique ;
-    rdfs:label "Contrat de validation d'un exemplaire physique"@fr ;
+    rdfs:label "Contrat de validation d'un exemplaire physique (A-Box)"@fr ;
     sh:property [
         sh:path ex:codeBarres ;
         sh:minCount 1 ;
@@ -70,7 +80,7 @@ ex:ExemplaireValidationShape a sh:NodeShape ;
 # Validation de l'emprunt (intégrité temporelle et cardinalités)
 ex:EmpruntValidationShape a sh:NodeShape ;
     sh:targetClass ex:Emprunt ;
-    rdfs:label "Contrat de validation d'un emprunt"@fr ;
+    rdfs:label "Contrat de validation d'un emprunt (A-Box)"@fr ;
     sh:property [
         sh:path ex:concerneExemplaire ;
         sh:minCount 1 ;
@@ -110,7 +120,26 @@ ex:EmpruntValidationShape a sh:NodeShape ;
     ] .
 
 # =============================================================================
-# 2. SHACL-AF : Règles d'inférence (Inference Rules)
+# 2. SHACL CORE : Forme de gouvernance du modèle et vocabulaire (T-Box)
+# =============================================================================
+
+# Toute classe du modèle OWL doit comporter une étiquette lisible et une documentation
+ex:TBoxClassGovernanceShape a sh:NodeShape ;
+    sh:targetClass owl:Class ;
+    rdfs:label "Contrat de qualité de la T-Box (Métamodèle)"@fr ;
+    sh:property [
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:message "Toute classe OWL de la T-Box doit obligatoirement avoir au moins un rdfs:label."@fr ;
+    ] ;
+    sh:property [
+        sh:path rdfs:comment ;
+        sh:minCount 1 ;
+        sh:message "Toute classe OWL de la T-Box doit obligatoirement avoir un rdfs:comment documentant sa sémantique."@fr ;
+    ] .
+
+# =============================================================================
+# 3. SHACL-AF : Règles d'inférence (Inference Rules)
 # =============================================================================
 
 ex:EmpruntRulesShape a sh:NodeShape ;

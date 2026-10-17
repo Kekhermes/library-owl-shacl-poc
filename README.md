@@ -1,6 +1,6 @@
 # POC pédagogique : Ontologie OWL 2 et SHACL en Médiathèque
 
-Ce projet local d'apprentissage explique pas à pas comment modéliser un domaine familier (la gestion des prêts et abonnés d'une médiathèque) avec une **ontologie OWL 2**, valider l'intégrité des données avec **SHACL Core**, et déduire automatiquement de nouveaux faits avec les règles **SHACL-AF**.
+Ce projet local d'apprentissage explique pas à pas comment modéliser un domaine familier (la gestion des prêts et abonnés d'une médiathèque) avec une **ontologie OWL 2**, valider la cohérence intrinsèque du modèle (**T-Box**), valider l'intégrité des données réelles avec **SHACL Core** (**A-Box**), et déduire automatiquement de nouveaux faits avec les règles **SHACL-AF**.
 
 Il est conçu pour débuter : **aucune connaissance préalable en ontologie, RDF ou graphes de connaissances n'est requise**.
 
@@ -8,7 +8,9 @@ Il est conçu pour débuter : **aucune connaissance préalable en ontologie, RDF
 
 ## Ce que vous allez apprendre
 
-- **Comprendre la modélisation RDF** : lire un fait sous forme de triplet sujet–prédicat–objet.
+- **Comprendre la frontière T-Box (Modèle) vs A-Box (Données)** :
+  - **T-Box (Terminological Box)** : le vocabulaire, les classes, les hiérarchies et les axiomes logiques. Savoir comment vérifier qu'une modification du schéma n'introduit ni classe insatisfiable ni cycle d'héritage.
+  - **A-Box (Assertional Box)** : les faits réels, les individus et les transactions d'emprunt. Savoir comment valider leur conformité stricte avec SHACL.
 - **Distinguer l'Œuvre du support matériel** : comprendre pourquoi une ontologie sépare le concept abstrait d'un livre (`Document` / `Livre`) de son exemplaire physique étiqueté en rayon (`ExemplairePhysique`).
 - **Manipuler les axiomes sémantiques OWL 2** :
   - la spécialisation de classes (`rdfs:subClassOf`) et les disjonctions (`owl:disjointWith`) ;
@@ -16,9 +18,10 @@ Il est conçu pour débuter : **aucune connaissance préalable en ontologie, RDF
   - les relations miroirs (`owl:inverseOf`) et les contraintes fonctionnelles (`owl:FunctionalProperty`) ;
   - les clés uniques d'identification métier (`owl:hasKey`).
 - **Valider des données avec SHACL Core** :
-  - expressions régulières sur formats normalisés (ex. format international ISBN-13 avec `sh:pattern`) ;
-  - contraintes temporelles relationnelles (ex. date d'emprunt antérieure au retour avec `sh:lessThan`) ;
-  - gestion du monde fermé sur les formulaires usagers (`sh:closed true`).
+  - expressions régulières sur formats normalisés (format international ISBN-13 avec `sh:pattern`) ;
+  - contraintes temporelles relationnelles (date d'emprunt antérieure au retour avec `sh:lessThan`) ;
+  - gestion du monde fermé sur les profils usagers (`sh:closed true`) ;
+  - disjonction des rôles appliquée aux données réelles (`sh:not`).
 - **Calculer des faits avec SHACL-AF** :
   - déduire automatiquement le statut d'un prêt (`« en règle »`, `« à relancer »`, `« critique »`) et le montant exact des pénalités financières de retard.
 
@@ -44,7 +47,7 @@ source .venv/bin/activate
 # 2. Installer les dépendances
 pip install -r requirements-dev.txt
 
-# 3. Lancer la suite de tests automatisés (12 tests)
+# 3. Lancer la suite de tests automatisés (17 tests)
 pytest
 
 # 4. Exécuter la démonstration pédagogique
@@ -54,14 +57,38 @@ python -m library_owl_shacl_poc
 ### Exemple de sortie console attendue :
 
 ```text
-========================================================================
-Démonstration : Ontologie OWL 2 et Règles SHACL en Médiathèque
-========================================================================
+============================================================================
+Démonstration Pédagogique : Ontologie OWL 2 et Règles SHACL en Médiathèque
+============================================================================
 Un triplet RDF se lit : Sujet (Exemplaire/Emprunt) — Prédicat (Propriété) — Objet (Valeur).
-1. Étape de validation SHACL Core : vérification de l'intégrité des données.
-  -> Validation SHACL : CONFORME (tous les contrats de forme sont respectés).
 
-2. Étape d'inférence SHACL-AF : exécution des règles conditionnelles.
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 1. VALIDATION DE LA T-BOX (Modèle conceptuel & Vocabulaire)             │
+└──────────────────────────────────────────────────────────────────────────┘
+Objectif : vérifier que le schéma de l'ontologie est intrinsèquement sain.
+- Détection des classes insatisfiables (conflits d'héritage entre classes disjointes)
+- Détection des cycles d'héritage illégaux (boucles subClassOf)
+- Contrôle qualité de la documentation (présence des rdfs:label et rdfs:comment)
+
+  -> Résultat T-Box : MODÈLE COHÉRENT ET VALIDE
+     11 classes OWL, 9 relations d'objets, 10 propriétés de données.
+     Aucun conflit logique ni cycle détecté.
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 2. VALIDATION DE LA A-BOX (Faits réels & Données d'instances)           │
+└──────────────────────────────────────────────────────────────────────────┘
+Objectif : vérifier que les données concrètes respectent les contrats SHACL.
+- Validation syntaxique (format regex ISBN-13 sur les livres)
+- Intégrité temporelle (dateEmprunt antérieure à dateRetourPrevue)
+- Monde fermé sur les usagers (rejet des propriétés inconnues sur les abonnés)
+- Disjonction des rôles (un usager abonné ne peut être déclaré auteur)
+
+  -> Résultat A-Box : DONNÉES 100% CONFORMES (toutes les formes SHACL sont satisfaites).
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│ 3. INFÉRENCE PAR RÈGLES SHACL-AF (Enrichissement du graphe)             │
+└──────────────────────────────────────────────────────────────────────────┘
+Objectif : calculer dynamiquement le statut et les pénalités sans code métier.
    Règle 1 : retard = 0 jour  -> statut « en règle », pénalité 0.00 €.
    Règle 2 : 0 < retard < 7 j -> statut « à relancer », pénalité 0.50 € / jour.
    Règle 3 : retard >= 7 j    -> statut « critique », pénalité 0.50 € / jour.
@@ -82,7 +109,7 @@ Un triplet RDF se lit : Sujet (Exemplaire/Emprunt) — Prédicat (Propriété) �
 Graphe enrichi enregistré: artifacts/library-result.ttl
 Diagramme Mermaid enregistré: artifacts/ontology.mmd
 Visualisation interactive HTML enregistrée: artifacts/ontology-graph.html
-========================================================================
+============================================================================
 ```
 
 ---
@@ -134,6 +161,6 @@ Le projet génère automatiquement deux visualisations complémentaires sans auc
 
 ## Guides et documentation
 
-1. [Glossaire pédagogique](docs/glossaire.md) : tous les termes techniques traduits en français clair avec des exemples.
-2. [Guide pas à pas](docs/guide-pedagogique.md) : explication détaillée du scénario, des axiomes logiques, des contrats de validation et du calcul des pénalités.
+1. [Glossaire pédagogique](docs/glossaire.md) : tous les termes techniques traduits en français clair avec des exemples (T-Box, A-Box, cohérence, satisfiabilité).
+2. [Guide pas à pas](docs/guide-pedagogique.md) : explication détaillée du scénario, des axiomes logiques, des mécanismes pour ne rien casser lors de modifications T-Box ou ajouts A-Box.
 3. [Inventaire des licences](LICENSES.md) : audit des 14 dépendances Python installées (aucune licence GPL/AGPL).

@@ -141,6 +141,25 @@ ex:EmpruntValidationShape a sh:NodeShape ;
         sh:datatype xsd:integer ;
         sh:minInclusive 0 ;
         sh:message "Le nombre de jours de retard doit être un entier positif ou nul."@fr ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "Un même exemplaire physique ne peut pas être prêté à plusieurs personnes au même moment (chevauchement des dates d'emprunt)."@fr ;
+        sh:select """
+            SELECT $this (?other AS ?value)
+            WHERE {
+                $this <https://example.org/library#concerneExemplaire> ?exemplaire .
+                $this <https://example.org/library#dateEmprunt> ?start1 .
+                $this <https://example.org/library#dateRetourPrevue> ?end1 .
+                
+                ?other <https://example.org/library#concerneExemplaire> ?exemplaire .
+                ?other <https://example.org/library#dateEmprunt> ?start2 .
+                ?other <https://example.org/library#dateRetourPrevue> ?end2 .
+                
+                FILTER ($this != ?other)
+                FILTER (?start1 <= ?end2 && ?end1 >= ?start2)
+            }
+        """ ;
     ] .
 
 # =============================================================================

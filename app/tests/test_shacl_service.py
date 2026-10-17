@@ -62,6 +62,21 @@ def test_validate_candidate_inverted_dates_rejected(db_session: Session):
     assert "antérieure" in msg or "lessThan" in msg or "dateEmprunt" in msg
 
 
+def test_validate_candidate_overlapping_loan_rejected(db_session: Session):
+    # emprunt_alice concerne exemplaire_ast_1 du 2026-10-01 au 2026-10-21
+    candidate = {
+        "code": "emprunt_collision",
+        "exemplaire_code": "exemplaire_ast_1",
+        "abonne_code": "abonne_bob",
+        "date_emprunt": date(2026, 10, 15),
+        "date_retour_prevue": date(2026, 11, 5),
+        "jours_retard": 0,
+    }
+    is_valid, msg = validate_candidate_entity(db_session, "emprunt", candidate)
+    assert is_valid is False
+    assert "chevauchement" in msg or "plusieurs personnes" in msg
+
+
 def test_run_shacl_af_inferences(db_session: Session):
     result = run_shacl_af_inferences(db_session)
     assert result["success"] is True

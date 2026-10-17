@@ -119,3 +119,33 @@ def test_abox_disjoint_role_abonne_auteur_rejected():
     conforms, _, report = validate_abox(test_graph, shapes_graph)
     assert conforms is False
     assert "disjointes" in report or "AbonneDisjointWithAuteurShape" in report or "NotConstraintComponent" in report
+
+
+def test_abox_overlapping_loans_on_same_copy_rejected():
+    """Vérifie le rejet SHACL de deux emprunts simultanés sur le même exemplaire physique."""
+    _, shapes_graph = load_raw_graphs()
+    test_graph = Graph()
+    test_graph.parse("rdf/ontology.ttl", format="turtle")
+
+    copy = EX.exemplaire_ast_1
+    # Emprunt 1 : 1er au 21 octobre
+    emp1 = EX.emp_concurrent_1
+    test_graph.add((emp1, RDF.type, EX.Emprunt))
+    test_graph.add((emp1, EX.concerneExemplaire, copy))
+    test_graph.add((emp1, EX.empruntePar, EX.abonne_alice))
+    test_graph.add((emp1, EX.dateEmprunt, Literal("2026-10-01", datatype=XSD.date)))
+    test_graph.add((emp1, EX.dateRetourPrevue, Literal("2026-10-21", datatype=XSD.date)))
+    test_graph.add((emp1, EX.joursRetard, Literal(0)))
+
+    # Emprunt 2 : 10 au 30 octobre (chevauchement)
+    emp2 = EX.emp_concurrent_2
+    test_graph.add((emp2, RDF.type, EX.Emprunt))
+    test_graph.add((emp2, EX.concerneExemplaire, copy))
+    test_graph.add((emp2, EX.empruntePar, EX.abonne_bob))
+    test_graph.add((emp2, EX.dateEmprunt, Literal("2026-10-10", datatype=XSD.date)))
+    test_graph.add((emp2, EX.dateRetourPrevue, Literal("2026-10-30", datatype=XSD.date)))
+    test_graph.add((emp2, EX.joursRetard, Literal(0)))
+
+    conforms, _, report = validate_abox(test_graph, shapes_graph)
+    assert conforms is False
+    assert "chevauchement" in report or "plusieurs personnes" in report or "SPARQLConstraintComponent" in report

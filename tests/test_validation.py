@@ -28,6 +28,27 @@ def test_abox_invalid_isbn_is_rejected():
     assert "ISBN" in report or "LivreValidationShape" in report
 
 
+def test_abox_duplicate_isbn_is_rejected():
+    """Vérifie le rejet SHACL de deux livres distincts partageant le même ISBN (unicité globale)."""
+    _, shapes_graph = load_raw_graphs()
+    test_graph = Graph()
+    test_graph.parse("rdf/ontology.ttl", format="turtle")
+
+    book1 = EX.livre_1
+    test_graph.add((book1, RDF.type, EX.Livre))
+    test_graph.add((book1, EX.titre, Literal("Premier livre")))
+    test_graph.add((book1, EX.isbn, Literal("978-2-01-210133-3")))
+
+    book2 = EX.livre_2
+    test_graph.add((book2, RDF.type, EX.Livre))
+    test_graph.add((book2, EX.titre, Literal("Deuxième livre avec même ISBN")))
+    test_graph.add((book2, EX.isbn, Literal("978-2-01-210133-3")))
+
+    conforms, _, report = validate_abox(test_graph, shapes_graph)
+    assert conforms is False
+    assert "unicité requise" in report or "SPARQLConstraintComponent" in report
+
+
 def test_abox_invalid_dates_is_rejected():
     """Vérifie le rejet SHACL d'un emprunt dont la date de début est postérieure à la date de fin."""
     _, shapes_graph = load_raw_graphs()

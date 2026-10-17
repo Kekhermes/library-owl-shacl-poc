@@ -33,6 +33,21 @@ def test_validate_candidate_invalid_isbn_rejected(db_session: Session):
     assert len(msg) > 0
 
 
+def test_validate_candidate_duplicate_isbn_rejected(db_session: Session):
+    # L'ISBN de livre_asterix est 978-2-01-210133-3
+    candidate = {
+        "code": "livre_doublon",
+        "titre": "Autre Livre avec Même ISBN",
+        "isbn": "978-2-01-210133-3",
+        "type_livre": "Livre",
+        "auteur_code": "auteur_berners_lee",
+        "theme_code": "theme_informatique",
+    }
+    is_valid, msg = validate_candidate_entity(db_session, "livre", candidate)
+    assert is_valid is False
+    assert "unicité requise" in msg or "distincts" in msg
+
+
 def test_validate_candidate_inverted_dates_rejected(db_session: Session):
     candidate = {
         "code": "emprunt_bad_dates",

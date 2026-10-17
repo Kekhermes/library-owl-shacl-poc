@@ -26,6 +26,18 @@ ex:LivreValidationShape a sh:NodeShape ;
         sh:datatype xsd:string ;
         sh:pattern "^97[89]-\\d{1,5}-\\d+-\\d+-[0-9X]$" ;
         sh:message "L'ISBN doit être unique et respecter la syntaxe internationale ISBN-13 (ex. 978-2-01-210133-3)."@fr ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "Deux livres distincts ne peuvent pas posséder le même numéro ISBN (unicité requise)."@fr ;
+        sh:select """
+            SELECT $this (?other AS ?value)
+            WHERE {
+                $this <https://example.org/library#isbn> ?isbn .
+                ?other <https://example.org/library#isbn> ?isbn .
+                FILTER ($this != ?other)
+            }
+        """ ;
     ] .
 
 # Validation de l'adhérent (Monde fermé : rejette les propriétés inconnues)
@@ -75,6 +87,18 @@ ex:ExemplaireValidationShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:class ex:Document ;
         sh:message "Un exemplaire physique doit être rattaché à au moins un Document."@fr ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "Deux exemplaires physiques distincts ne peuvent pas posséder le même code-barres (unicité requise)."@fr ;
+        sh:select """
+            SELECT $this (?other AS ?value)
+            WHERE {
+                $this <https://example.org/library#codeBarres> ?cb .
+                ?other <https://example.org/library#codeBarres> ?cb .
+                FILTER ($this != ?other)
+            }
+        """ ;
     ] .
 
 # Validation de l'emprunt (intégrité temporelle et cardinalités)

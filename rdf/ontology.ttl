@@ -22,7 +22,8 @@ ex:Document a owl:Class ;
 ex:Livre a owl:Class ;
     rdfs:subClassOf ex:Document ;
     rdfs:label "Livre"@fr ;
-    rdfs:comment "Document écrit publié sous forme de volume."@fr .
+    rdfs:comment "Document écrit publié sous forme de volume."@fr ;
+    owl:hasKey ( ex:isbn ) .
 
 ex:BandeDessinee a owl:Class ;
     rdfs:subClassOf ex:Livre ;

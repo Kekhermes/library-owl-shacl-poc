@@ -45,7 +45,7 @@ class Livre(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(50), unique=True, nullable=False, index=True)
     titre = Column(String(255), nullable=False)
-    isbn = Column(String(50), nullable=False)
+    isbn = Column(String(50), unique=True, nullable=False)
     type_livre = Column(String(50), nullable=False, default="Livre")
     auteur_id = Column(Integer, ForeignKey("auteurs.id", ondelete="SET NULL"), nullable=True)
     theme_id = Column(Integer, ForeignKey("themes.id", ondelete="SET NULL"), nullable=True)

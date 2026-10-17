@@ -30,12 +30,12 @@ Il est conçu pour débuter : **aucune connaissance préalable en ontologie, RDF
 ## Prérequis et environnement
 
 - **Python 3.11** ;
-- Aucun service externe, aucun serveur web, aucune base de données ni conteneur Docker ;
+- Aucun service externe, aucun serveur web, aucune base de données ni conteneur Docker pour la partie socle CLI ;
 - **Aucune JVM / Java / Maven** : conformément aux objectifs pédagogiques actuels, ce projet n'implémente pas SWRL à ce stade.
 
 ---
 
-## Installer et lancer
+## Installer et lancer (Partie 1 : Socle CLI)
 
 Depuis la racine du projet :
 
@@ -47,7 +47,7 @@ source .venv/bin/activate
 # 2. Installer les dépendances
 pip install -r requirements-dev.txt
 
-# 3. Lancer la suite de tests automatisés (17 tests)
+# 3. Lancer la suite de tests automatisés (27 tests)
 pytest
 
 # 4. Exécuter la démonstration pédagogique
@@ -159,8 +159,27 @@ Le projet génère automatiquement deux visualisations complémentaires sans auc
 
 ---
 
+## Partie 2 : Application Fullstack PostgreSQL & SHACL (`app/`)
+
+Une seconde partie isolée dans le répertoire [`app/`](app/) propose une application web complète (FastAPI + Jinja2/Tailwind + PostgreSQL) conteneurisée avec Docker :
+- **Persistance A-Box dans PostgreSQL** : tables relationnelles dédiées (`livres`, `abonnes`, `emprunts`) avec projection dynamique vers RDF.
+- **Validation SHACL Core bloquante** : toute tentative d'ajout ou modification de données non conformes (ISBN invalide, dates d'emprunt incohérentes, email usager erroné) est interceptée et bloquée par SHACL avant écriture en base.
+- **Inférence SHACL-AF à la demande** : déclenchement interactif des règles sémantiques depuis l'interface avec rapport de feedback détaillé (nouveaux statuts et calcul des pénalités financières).
+- **Export RDF dynamique** : inspection en direct des triplets générés depuis la base relationnelle.
+
+### Lancer l'application avec Docker :
+
+```bash
+cd app
+docker compose up --build
+```
+
+L'application est ensuite directement accessible sur [http://localhost:8000](http://localhost:8000).
+
+---
+
 ## Guides et documentation
 
 1. [Glossaire pédagogique](docs/glossaire.md) : tous les termes techniques traduits en français clair avec des exemples (T-Box, A-Box, cohérence, satisfiabilité).
 2. [Guide pas à pas](docs/guide-pedagogique.md) : explication détaillée du scénario, des axiomes logiques, des mécanismes pour ne rien casser lors de modifications T-Box ou ajouts A-Box.
-3. [Inventaire des licences](LICENSES.md) : audit des 14 dépendances Python installées (aucune licence GPL/AGPL).
+3. [Inventaire des licences](LICENSES.md) : audit des dépendances installées (aucune licence GPL/AGPL).

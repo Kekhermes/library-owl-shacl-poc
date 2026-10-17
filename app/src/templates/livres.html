@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Livres — Médiathèque SHACL{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Gestion des Livres (A-Box)</h1>
+            <p class="text-sm text-slate-400 mt-1">Chaque livre est validé par la forme <code>ex:LivreValidationShape</code> (format ISBN-13).</p>
+        </div>
+    </div>
+
+    <!-- Alerte d'erreur SHACL -->
+    {% if error %}
+    <div class="bg-rose-950/80 border border-rose-500 text-rose-200 p-4 rounded-xl flex items-start gap-3 shadow-lg">
+        <span class="text-xl">⛔</span>
+        <div class="text-sm">
+            <strong class="font-bold block text-rose-100">Échec de la validation SHACL : écriture refusée</strong>
+            <span>{{ error }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Liste des livres -->
+        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div class="p-4 border-b border-slate-800 font-semibold text-white">
+                Catalogue actuel ({{ livres|length }} livres)
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-950 text-xs uppercase text-slate-400 border-b border-slate-800">
+                        <tr>
+                            <th class="p-3">Titre</th>
+                            <th class="p-3">Type</th>
+                            <th class="p-3">ISBN (SHACL regex)</th>
+                            <th class="p-3">Auteur</th>
+                            <th class="p-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        {% for livre in livres %}
+                        <tr class="hover:bg-slate-800/50">
+                            <td class="p-3 font-medium text-white">{{ livre.titre }}</td>
+                            <td class="p-3">
+                                <span class="px-2 py-0.5 text-xs rounded bg-sky-950 text-sky-300 border border-sky-800">
+                                    {{ livre.type_livre }}
+                                </span>
+                            </td>
+                            <td class="p-3 font-mono text-xs text-emerald-400">{{ livre.isbn }}</td>
+                            <td class="p-3 text-slate-400">{{ livre.auteur.nom if livre.auteur else "Anonyme" }}</td>
+                            <td class="p-3 text-right">
+                                <form action="/livres/{{ livre.id }}/delete" method="POST" onsubmit="return confirm('Supprimer ce livre ?');">
+                                    <button type="submit" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Supprimer</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Formulaire d'ajout avec validation SHACL -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <h2 class="text-md font-bold text-white mb-2">Ajouter un Document</h2>
+            <p class="text-xs text-slate-400 mb-4">Le contrat SHACL exige un titre non vide et un ISBN-13 valide (ex: 978-2-01-210133-3).</p>
+
+            <form action="/livres" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Titre de l'œuvre</label>
+                    <input type="text" id="titre" name="titre" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">ISBN-13 (Contrôle Regex SHACL)</label>
+                    <input type="text" id="isbn" name="isbn" required placeholder="978-X-XX-XXXXXX-X" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Catégorie OWL</label>
+                    <select name="type_livre" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+                        <option value="Livre">Livre (ex:Livre)</option>
+                        <option value="BandeDessinee">Bande dessinée (ex:BandeDessinee)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Auteur</label>
+                    <select name="auteur_id" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+                        {% for aut in auteurs %}
+                        <option value="{{ aut.id }}">{{ aut.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Thème documentaire</label>
+                    <select name="theme_id" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+                        {% for th in themes %}
+                        <option value="{{ th.id }}">{{ th.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium py-2 rounded-lg text-sm transition">
+                        Enregistrer (Soumettre à SHACL)
+                    </button>
+                </div>
+            </form>
+
+            <!-- Boutons pédagogiques de test -->
+            <div class="mt-6 pt-4 border-t border-slate-800">
+                <span class="text-xs font-semibold text-slate-400 block mb-2 uppercase">Boutons de test rapide :</span>
+                <div class="space-y-2">
+                    <button type="button" onclick="document.getElementById('titre').value='Le Petit Prince'; document.getElementById('isbn').value='978-2-07-061275-8';" class="w-full text-left text-xs bg-slate-950 hover:bg-slate-800 p-2 rounded border border-slate-800 text-emerald-400">
+                        ✓ Remplir un livre avec ISBN valide
+                    </button>
+                    <button type="button" onclick="document.getElementById('titre').value='Faux Document'; document.getElementById('isbn').value='123-FAUX-ISBN';" class="w-full text-left text-xs bg-slate-950 hover:bg-slate-800 p-2 rounded border border-slate-800 text-rose-400">
+                        ✗ Remplir un ISBN invalide (déclenche le rejet SHACL)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

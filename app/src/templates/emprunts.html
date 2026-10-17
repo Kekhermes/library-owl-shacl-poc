@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Emprunts — Médiathèque SHACL{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-white">Gestion des Emprunts (A-Box)</h1>
+            <p class="text-sm text-slate-400 mt-1">
+                Contrat temporel : <code>ex:dateEmprunt sh:lessThan ex:dateRetourPrevue</code> et <code>sh:minInclusive 0</code> sur les retards.
+            </p>
+        </div>
+        <a href="/inference" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-1.5 shadow">
+            ⚡ Calculer les Statuts & Pénalités
+        </a>
+    </div>
+
+    {% if error %}
+    <div class="bg-rose-950/80 border border-rose-500 text-rose-200 p-4 rounded-xl flex items-start gap-3 shadow-lg">
+        <span class="text-xl">⛔</span>
+        <div class="text-sm">
+            <strong class="font-bold block text-rose-100">Échec de la validation SHACL : écriture refusée</strong>
+            <span>{{ error }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Liste des emprunts -->
+        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div class="p-4 border-b border-slate-800 font-semibold text-white flex justify-between items-center">
+                <span>Prêts enregistrés ({{ emprunts|length }})</span>
+                <span class="text-xs text-slate-400">Modifier les jours de retard pour tester les règles</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-950 text-xs uppercase text-slate-400 border-b border-slate-800">
+                        <tr>
+                            <th class="p-3">Exemplaire / Livre</th>
+                            <th class="p-3">Abonné</th>
+                            <th class="p-3">Dates (Emprunt / Retour)</th>
+                            <th class="p-3">Retard (Jours)</th>
+                            <th class="p-3">Statut & Pénalité (SHACL-AF)</th>
+                            <th class="p-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        {% for emp in emprunts %}
+                        <tr class="hover:bg-slate-800/50">
+                            <td class="p-3">
+                                <div class="font-medium text-white">{{ emp.exemplaire.livre.titre }}</div>
+                                <div class="text-xs text-slate-400 font-mono">{{ emp.exemplaire.code_barres }}</div>
+                            </td>
+                            <td class="p-3 text-slate-300 font-medium">{{ emp.abonne.nom }}</td>
+                            <td class="p-3 text-xs text-slate-400 font-mono">
+                                <div>Du : {{ emp.date_emprunt }}</div>
+                                <div>Au : {{ emp.date_retour_prevue }}</div>
+                            </td>
+                            <td class="p-3">
+                                <form action="/emprunts/{{ emp.id }}/retard" method="POST" class="flex items-center gap-1.5">
+                                    <input type="number" name="jours_retard" value="{{ emp.jours_retard }}" class="w-16 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs text-white text-center">
+                                    <button type="submit" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2 py-1 rounded" title="Enregistrer le retard">
+                                        OK
+                                    </button>
+                                </form>
+                            </td>
+                            <td class="p-3">
+                                {% if emp.statut_emprunt == "en règle" %}
+                                <span class="px-2 py-0.5 rounded text-xs bg-emerald-950 text-emerald-300 border border-emerald-800 font-semibold block w-fit">
+                                    En règle ({{ emp.penalite_euros or "0.00" }} €)
+                                </span>
+                                {% elif emp.statut_emprunt == "à relancer" %}
+                                <span class="px-2 py-0.5 rounded text-xs bg-amber-950 text-amber-300 border border-amber-800 font-semibold block w-fit">
+                                    À relancer ({{ emp.penalite_euros }} €)
+                                </span>
+                                {% elif emp.statut_emprunt == "critique" %}
+                                <span class="px-2 py-0.5 rounded text-xs bg-rose-950 text-rose-300 border border-rose-800 font-semibold block w-fit">
+                                    Critique ({{ emp.penalite_euros }} €)
+                                </span>
+                                {% else %}
+                                <span class="text-xs text-slate-500 italic">Non calculé</span>
+                                {% endif %}
+                            </td>
+                            <td class="p-3 text-right">
+                                <form action="/emprunts/{{ emp.id }}/delete" method="POST" onsubmit="return confirm('Restituer ou clôturer cet emprunt ?');">
+                                    <button type="submit" class="text-rose-400 hover:text-rose-300 text-xs font-semibold">Clôturer</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Formulaire d'enregistrement -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <h2 class="text-md font-bold text-white mb-2">Enregistrer un Emprunt</h2>
+            <p class="text-xs text-slate-400 mb-4">SHACL valide la cohérence temporelle : <code>dateEmprunt < dateRetourPrevue</code>.</p>
+
+            <form action="/emprunts" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Exemplaire physique</label>
+                    <select name="exemplaire_id" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+                        {% for ex in exemplaires %}
+                        <option value="{{ ex.id }}">{{ ex.livre.titre }} ({{ ex.code_barres }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Abonné emprunteur</label>
+                    <select name="abonne_id" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+                        {% for ab in abonnes %}
+                        <option value="{{ ab.id }}">{{ ab.nom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Date d'emprunt</label>
+                        <input type="date" id="date_emprunt" name="date_emprunt" value="2026-10-15" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Retour prévu</label>
+                        <input type="date" id="date_retour_prevue" name="date_retour_prevue" value="2026-11-05" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Jours de retard initiaux</label>
+                    <input type="number" id="jours_retard" name="jours_retard" value="0" min="-10" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500">
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium py-2 rounded-lg text-sm transition">
+                        Créer le prêt (Validation SHACL)
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6 pt-4 border-t border-slate-800">
+                <span class="text-xs font-semibold text-slate-400 block mb-2 uppercase">Boutons de test rapide :</span>
+                <div class="space-y-2">
+                    <button type="button" onclick="document.getElementById('date_emprunt').value='2026-10-15'; document.getElementById('date_retour_prevue').value='2026-11-05'; document.getElementById('jours_retard').value='0';" class="w-full text-left text-xs bg-slate-950 hover:bg-slate-800 p-2 rounded border border-slate-800 text-emerald-400">
+                        ✓ Remplir un prêt temporellement valide
+                    </button>
+                    <button type="button" onclick="document.getElementById('date_emprunt').value='2026-11-20'; document.getElementById('date_retour_prevue').value='2026-11-05';" class="w-full text-left text-xs bg-slate-950 hover:bg-slate-800 p-2 rounded border border-slate-800 text-rose-400">
+                        ✗ Inverser les dates : début > fin (Rejet SHACL lessThan)
+                    </button>
+                    <button type="button" onclick="document.getElementById('jours_retard').value='-5';" class="w-full text-left text-xs bg-slate-950 hover:bg-slate-800 p-2 rounded border border-slate-800 text-rose-400">
+                        ✗ Retard négatif : -5 jours (Rejet SHACL minInclusive)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

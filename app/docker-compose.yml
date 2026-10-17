@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: library_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: library_user
+      POSTGRES_PASSWORD: library_pass
+      POSTGRES_DB: library_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library_user -d library_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: ..
+      dockerfile: app/Dockerfile
+    container_name: library_fullstack_web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://library_user:library_pass@db:5432/library_db
+      - RDF_ONTOLOGY_PATH=/workspace/rdf/ontology.ttl
+      - RDF_SHAPES_PATH=/workspace/rdf/shapes.ttl
+    volumes:
+      - ./src:/workspace/app/src
+      - ../rdf:/workspace/rdf:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

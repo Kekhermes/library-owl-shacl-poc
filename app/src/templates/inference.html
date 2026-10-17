@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Inférence SHACL-AF — Médiathèque SHACL{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- En-tête -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                <span>⚡</span> Moteur d'Inférence SHACL-AF
+            </h1>
+            <p class="text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                Exécute les règles <code>sh:SPARQLRule</code> déclarées dans <code>rdf/shapes.ttl</code> sur l'ensemble des données PostgreSQL.
+                Les statuts calculés (<code>ex:statutEmprunt</code>) et les montants de pénalités (<code>ex:penaliteEuros</code>) sont déduits par le raisonneur W3C puis persistés en base.
+            </p>
+        </div>
+
+        <form action="/inference/run" method="POST">
+            <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white font-bold px-6 py-3 rounded-xl transition shadow-lg shadow-amber-600/20 flex items-center gap-2 text-sm">
+                <span>⚡</span> Lancer l'inférence SHACL-AF
+            </button>
+        </form>
+    </div>
+
+    <!-- Rappel des règles métier SHACL-AF -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+        <div class="bg-slate-900 border border-emerald-900/40 p-4 rounded-xl">
+            <span class="text-emerald-400 font-bold block mb-1 uppercase font-sans text-xs">Règle 1 : Emprunt en règle</span>
+            <div class="text-slate-300">Condition : <code>retard = 0 jour</code></div>
+            <div class="text-slate-400 mt-1">Triplets : <code>"en règle"@fr</code> / <code>0.00 €</code></div>
+        </div>
+        <div class="bg-slate-900 border border-amber-900/40 p-4 rounded-xl">
+            <span class="text-amber-400 font-bold block mb-1 uppercase font-sans text-xs">Règle 2 : Emprunt à relancer</span>
+            <div class="text-slate-300">Condition : <code>0 < retard < 7 jours</code></div>
+            <div class="text-slate-400 mt-1">Triplets : <code>"à relancer"@fr</code> / <code>retard * 0.50 €</code></div>
+        </div>
+        <div class="bg-slate-900 border border-rose-900/40 p-4 rounded-xl">
+            <span class="text-rose-400 font-bold block mb-1 uppercase font-sans text-xs">Règle 3 : Emprunt critique</span>
+            <div class="text-slate-300">Condition : <code>retard >= 7 jours</code></div>
+            <div class="text-slate-400 mt-1">Triplets : <code>"critique"@fr</code> / <code>retard * 0.50 €</code></div>
+        </div>
+    </div>
+
+    <!-- Feedback utilisateur si l'inférence a été déclenchée -->
+    {% if feedback %}
+    <div class="bg-slate-900 border border-amber-500/40 rounded-xl p-6 shadow-xl space-y-4">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">✨</span>
+            <div>
+                <h2 class="text-lg font-bold text-white">Rapport d'exécution SHACL-AF</h2>
+                <p class="text-xs text-amber-300">
+                    Les règles SHACL-SPARQL ont été exécutées avec succès sur {{ feedback.total_emprunts }} emprunt(s). Les deltas ont été enregistrés dans PostgreSQL.
+                </p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="bg-slate-950 text-xs uppercase text-slate-400 border-b border-slate-800">
+                    <tr>
+                        <th class="p-3">Emprunt</th>
+                        <th class="p-3">Usager</th>
+                        <th class="p-3">Livre</th>
+                        <th class="p-3">Retard</th>
+                        <th class="p-3">Ancien Statut</th>
+                        <th class="p-3">Nouveau Statut (SHACL-AF)</th>
+                        <th class="p-3">Pénalité déduite</th>
+                        <th class="p-3 text-center">Mise à jour</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for d in feedback.deltas %}
+                    <tr class="hover:bg-slate-800/50">
+                        <td class="p-3 font-mono text-xs text-slate-400">{{ d.code }}</td>
+                        <td class="p-3 font-medium text-white">{{ d.abonne }}</td>
+                        <td class="p-3 text-slate-300">{{ d.livre }}</td>
+                        <td class="p-3 font-bold">{{ d.jours_retard }} j</td>
+                        <td class="p-3 text-xs text-slate-500">{{ d.old_statut }}</td>
+                        <td class="p-3">
+                            {% if d.new_statut == "en règle" %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-emerald-950 text-emerald-300 border border-emerald-800 font-semibold">
+                                {{ d.new_statut }}
+                            </span>
+                            {% elif d.new_statut == "à relancer" %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-amber-950 text-amber-300 border border-amber-800 font-semibold">
+                                {{ d.new_statut }}
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded text-xs bg-rose-950 text-rose-300 border border-rose-800 font-semibold">
+                                {{ d.new_statut }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="p-3 font-mono text-xs text-sky-400 font-semibold">{{ d.new_penalite }}</td>
+                        <td class="p-3 text-center">
+                            {% if d.has_changed %}
+                            <span class="px-2 py-0.5 rounded-full text-xs bg-sky-950 text-sky-300 border border-sky-800">Nouveau calcul</span>
+                            {% else %}
+                            <span class="text-xs text-slate-500">Inchangé</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tableau actuel des emprunts -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+        <div class="p-4 border-b border-slate-800 font-semibold text-white">
+            État courant en base PostgreSQL
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="bg-slate-950 text-xs uppercase text-slate-400 border-b border-slate-800">
+                    <tr>
+                        <th class="p-3">Identifiant</th>
+                        <th class="p-3">Abonné</th>
+                        <th class="p-3">Exemplaire</th>
+                        <th class="p-3">Retard</th>
+                        <th class="p-3">Statut actuel en base</th>
+                        <th class="p-3">Pénalité actuelle</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for emp in emprunts %}
+                    <tr class="hover:bg-slate-800/50">
+                        <td class="p-3 font-mono text-xs text-slate-400">{{ emp.code }}</td>
+                        <td class="p-3 font-medium text-white">{{ emp.abonne.nom }}</td>
+                        <td class="p-3 text-slate-300">{{ emp.exemplaire.livre.titre }}</td>
+                        <td class="p-3 font-bold">{{ emp.jours_retard }} j</td>
+                        <td class="p-3">
+                            {{ emp.statut_emprunt or "Non calculé" }}
+                        </td>
+                        <td class="p-3 font-mono text-xs">
+                            {{ emp.penalite_euros or "0.00" }} €
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

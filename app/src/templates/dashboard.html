@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de bord — Médiathèque SHACL{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- En-tête -->
+    <div>
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">Tableau de bord de la Médiathèque</h1>
+        <p class="text-slate-400 mt-2 text-sm leading-relaxed max-w-3xl">
+            Cette application fullstack stocke les entités du monde réel (<strong class="text-sky-400">A-Box</strong>) dans PostgreSQL.
+            Chaque opération d'écriture (création, mise à jour) est soumise à une <strong class="text-emerald-400">validation préventive bloquante par SHACL Core</strong>.
+            Le moteur de règles <strong class="text-amber-400">SHACL-AF</strong> permet ensuite de déduire dynamiquement le statut des prêts et les pénalités de retard.
+        </p>
+    </div>
+
+    <!-- Cartes métriques -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Livres & Œuvres</div>
+            <div class="text-3xl font-extrabold text-white mt-2">{{ total_livres }}</div>
+            <div class="text-xs text-slate-500 mt-1">{{ total_exemplaires }} exemplaire(s) physique(s)</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Abonnés inscrits</div>
+            <div class="text-3xl font-extrabold text-white mt-2">{{ total_abonnes }}</div>
+            <div class="text-xs text-emerald-400 mt-1">✓ Fiches protégées (Monde clos)</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Emprunts en cours</div>
+            <div class="text-3xl font-extrabold text-white mt-2">{{ total_emprunts }}</div>
+            <div class="text-xs text-amber-400 mt-1">{{ emprunts_en_retard }} emprunt(s) avec retard</div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Validation & Inférence</div>
+            <div class="text-2xl font-bold text-sky-400 mt-2">Active</div>
+            <div class="text-xs text-slate-400 mt-1">SHACL Core + SHACL-AF</div>
+        </div>
+    </div>
+
+    <!-- Schéma du flux architectural -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <h2 class="text-lg font-bold text-white mb-3">Architecture du cycle de vie : Postgres ⇄ RDF ⇄ SHACL</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                <span class="text-sky-400 font-bold block mb-1">1. Saisie & Mapping</span>
+                <p class="text-slate-400 text-xs leading-relaxed">
+                    L'utilisateur saisit ou modifie une entité. Le backend convertit temporairement l'état candidat en triplets RDF conformes au vocabulaire OWL 2.
+                </p>
+            </div>
+            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                <span class="text-emerald-400 font-bold block mb-1">2. Gate SHACL Bloquante</span>
+                <p class="text-slate-400 text-xs leading-relaxed">
+                    pySHACL valide le graphe contre <code>rdf/shapes.ttl</code>. Si une règle est violée (ex. ISBN invalide, dates d'emprunt inversées), l'insertion en base est refusée.
+                </p>
+            </div>
+            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800">
+                <span class="text-amber-400 font-bold block mb-1">3. Inférence SHACL-AF</span>
+                <p class="text-slate-400 text-xs leading-relaxed">
+                    À la demande de l'utilisateur, les règles <code>sh:SPARQLRule</code> évaluent les retards, calculent les statuts et pénalités, puis les persistent dans PostgreSQL.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions rapides -->
+    <div class="flex flex-wrap gap-4 pt-2">
+        <a href="/livres" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition">
+            Gérer les Livres
+        </a>
+        <a href="/abonnes" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition">
+            Gérer les Abonnés
+        </a>
+        <a href="/emprunts" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition">
+            Gérer les Emprunts
+        </a>
+        <a href="/inference" class="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition shadow-md flex items-center gap-2">
+            ⚡ Lancer l'inférence SHACL-AF
+        </a>
+    </div>
+</div>
+{% endblock %}
